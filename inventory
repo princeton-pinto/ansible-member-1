@@ -7,3 +7,5 @@
 [kminion_servers]
 172.105.43.154
 
+[wazuh_agents]
+172.105.43.154

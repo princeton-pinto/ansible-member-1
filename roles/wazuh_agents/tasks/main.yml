@@ -1,0 +1,32 @@
+- name: Download Wazuh agent package
+  become: true
+  get_url:
+    url: "https://packages.wazuh.com/4.x/apt/pool/main/w/wazuh-agent/wazuh-agent_4.7.1-1_amd64.deb"
+    dest: "/tmp/wazuh-agent_4.7.1-1_amd64.deb"
+    mode: 0644
+
+- name: Install Wazuh agent
+  become: true
+  command: "dpkg -i /tmp/wazuh-agent_4.7.1-1_amd64.deb"
+  environment:
+    WAZUH_MANAGER: "66.228.37.28"
+    WAZUH_AGENT_GROUP: "default"
+    WAZUH_AGENT_NAME: "{{ ansible_hostname }}"
+
+- name: Reload systemd configuration
+  become: true
+  systemd:
+    daemon_reload: yes
+
+- name: Enable Wazuh agent service
+  become: true
+  systemd:
+    name: wazuh-agent
+    enabled: yes
+
+- name: Start Wazuh agent service
+  become: true
+  systemd:
+    name: wazuh-agent
+    state: started
+

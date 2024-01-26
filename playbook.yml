@@ -6,6 +6,10 @@
 #  roles:
 #    - kminion_servers
 
-- hosts: prometheus_targets
+#- hosts: prometheus_targets
+#  roles:
+#    - prometheus_targets
+
+- hosts: wazuh_agents
   roles:
-    - prometheus_targets
+    - wazuh_agents
