@@ -1,3 +1,6 @@
+[prometheus_targets]
+172.233.219.119
+
 [node_exporter_servers]
 172.105.43.154
 

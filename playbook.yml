@@ -2,6 +2,10 @@
 #  roles:
 #    - node_exporter_servers
 
-- hosts: kminion_servers
+#- hosts: kminion_servers
+#  roles:
+#    - kminion_servers
+
+- hosts: prometheus_targets
   roles:
-    - kminion_servers
+    - prometheus_targets
