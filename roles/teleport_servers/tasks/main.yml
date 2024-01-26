@@ -1,0 +1,99 @@
+- name: Create a directory on target server to store logs
+  become: true
+  file:
+    path: /var/lib/teleport
+    state: directory
+    owner: ansible
+    group: ansible
+    mode: 0755
+
+- name: Check if teleport binary is avaialble
+  stat:
+    path: /usr/local/bin/teleport
+  register: teleport_binary_available
+
+- name: Download and Unarchive Teleport
+  become: true
+  ansible.builtin.unarchive:
+    src: https://cdn.teleport.dev/teleport-v14.2.0-linux-amd64-bin.tar.gz
+    dest: /tmp/
+    remote_src: yes
+    mode: 0755
+  when: not teleport_binary_available.stat.exists
+
+- name: Move the teleport binary
+  become: true
+  command: mv /tmp/teleport/teleport /usr/local/bin/
+  when: not teleport_binary_available.stat.exists
+
+- name: Set ownership of the teleport binary
+  become: true
+  file:
+    path: /usr/local/bin/teleport
+    owner: ansible
+    group: ansible
+
+- name: Check if teleport config is avaialble
+  stat:
+    path: /etc/teleport.yaml
+  register: teleport_config_available
+
+- name: Send teleport config file from Ansible host to target server
+  become: true
+  copy:
+    src: /home/ansible/ansible-member-1/roles/teleport_servers/files/teleport-config.yaml
+    dest: /etc/teleport.yaml
+  when: not teleport_config_available.stat.exists
+
+- name: Set ownership of the teleport config file
+  become: true
+  file:
+    path: /etc/teleport.yaml
+    owner: ansible
+    group: ansible
+
+- name: Get Teleport service status
+  systemd:
+    name: teleport
+  register: teleport_status
+
+- name: Fetch hostname from the destination server
+  become: true
+  ansible.builtin.command:
+    cmd: cat /etc/hostname
+  delegate_to: "{{ inventory_hostname }}"
+  when: teleport_status.status.ActiveState != "active"
+
+- name: Change nodename in Teleport config file
+  become: true
+  ansible.builtin.lineinfile:
+    path: /etc/teleport.yaml
+    regexp: '^(\s*)nodename:'
+    line: "  nodename: '{{ hostname_contents.stdout | default('') }}'"
+  when: teleport_status.status.ActiveState != "active"
+
+- name: Run Teleport join command
+  become: true
+  command: "/usr/local/bin/teleport configure --roles=node --token=750f4c0954b2ffe411e8196001b42b5c --proxy=teleport-cluster.bomdiagato.xyz:3080"
+  when: teleport_status.status.ActiveState != "active"
+
+- name: Check if the systemd unit file exists
+  become: true
+  ansible.builtin.stat:
+    path: /etc/systemd/system/teleport.service
+  register: systemd_unit_file_stat
+
+- name: Configure systemd unit file for Teleport
+  become: true
+  ansible.builtin.template:
+    src: teleport.service.j2
+    dest: /etc/systemd/system/teleport.service
+  when: not systemd_unit_file_stat.stat.exists
+
+- name: Reload systemd configuration and start Teleport service
+  become: true
+  ansible.builtin.systemd:
+    daemon_reload: true
+    name: teleport
+    enabled: yes
+    state: started

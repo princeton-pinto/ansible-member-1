@@ -1,15 +1,19 @@
-#- hosts: node_exporter_servers
-#  roles:
-#    - node_exporter_servers
+- hosts: node_exporter_servers
+  roles:
+    - node_exporter_servers
 
-#- hosts: kminion_servers
-#  roles:
-#    - kminion_servers
+- hosts: kminion_servers
+  roles:
+    - kminion_servers
 
-#- hosts: prometheus_targets
-#  roles:
-#    - prometheus_targets
+- hosts: prometheus_targets
+  roles:
+    - prometheus_targets
 
 - hosts: wazuh_agents
   roles:
     - wazuh_agents
+
+- hosts: teleport_servers
+  roles:
+    - teleport_servers
