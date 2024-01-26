@@ -1,0 +1,15 @@
+[Unit]
+Description=Kminion
+After=network-online.target
+
+[Service]
+User=kminion
+Group=kminion
+Restart=on-failure
+
+Environment="CONFIG_FILEPATH=/etc/kminion/kminion_config.yaml"
+Environment=KAFKA_BROKERS="127.0.0.1:9092"
+ExecStart=/usr/local/bin/kminion
+
+[Install]
+WantedBy=multi-user.target

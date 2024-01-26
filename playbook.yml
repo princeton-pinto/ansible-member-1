@@ -1,0 +1,7 @@
+#- hosts: node_exporter_servers
+#  roles:
+#    - node_exporter_servers
+
+- hosts: kminion_servers
+  roles:
+    - kminion_servers

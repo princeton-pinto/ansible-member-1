@@ -1,0 +1,60 @@
+- name: Create node_exporter group
+  become: true
+  ansible.builtin.group:
+    name:  node_exporter
+    state: present
+
+- name: Create node_exporter user
+  become: true
+  user:
+    name: node_exporter
+    system: true
+    group:  node_exporter
+    shell: /bin/false
+
+- name: Check if node exporter binary is avaialble
+  stat:
+    path: /usr/local/bin/node_exporter
+  register: node_exporter_binary_available
+
+- name: Download and Unarchive Node Exporter
+  become: true
+  ansible.builtin.unarchive:
+    src: https://github.com/prometheus/node_exporter/releases/download/v1.7.0/node_exporter-1.7.0.linux-amd64.tar.gz
+    dest: /tmp/
+    remote_src: yes
+    mode: 0755
+  when: not node_exporter_binary_available.stat.exists
+
+- name: Move the node exporter binary
+  become: true
+  command: mv /tmp/node_exporter-1.7.0.linux-amd64/node_exporter /usr/local/bin/
+  when: not node_exporter_binary_available.stat.exists
+
+- name: Set ownership of the node exporter binary
+  become: true
+  file:
+    path: /usr/local/bin/node_exporter
+    owner: node_exporter
+    group: node_exporter
+
+- name: Check if the systemd unit file exists
+  become: true
+  ansible.builtin.stat:
+    path: /etc/systemd/system/node_exporter.service
+  register: systemd_unit_file_stat
+
+- name: Configure systemd unit file for node exporter
+  become: true
+  ansible.builtin.template:
+    src: node_exporter.service.j2
+    dest: /etc/systemd/system/node_exporter.service
+  when: not systemd_unit_file_stat.stat.exists
+
+- name: Reload systemd configuration and start Node Exporter service
+  become: true
+  ansible.builtin.systemd:
+    daemon_reload: true
+    name:  node_exporter
+    enabled: yes
+    state: started

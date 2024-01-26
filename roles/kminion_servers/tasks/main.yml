@@ -1,0 +1,99 @@
+- name: Create kminion group
+  become: true
+  ansible.builtin.group:
+    name: kminion
+    state: present
+
+- name: Create kminion user
+  become: true
+  user:
+    name: kminion
+    system: true
+    group: kminion
+    shell: /bin/false
+
+- name: Check if kminion binary is avaialble
+  stat:
+    path: /usr/local/bin/kminion
+  register: kminion_binary_available
+
+- name: Download and Unarchive kminion
+  become: true
+  ansible.builtin.unarchive:
+    src: https://github.com/redpanda-data/kminion/releases/download/v2.2.6/kminion_2.2.6_linux_amd64.tar.gz
+    dest: /tmp/
+    remote_src: yes
+    mode: 0755
+  when: not kminion_binary_available.stat.exists
+
+- name: Move the kminion binary
+  become: true
+  command: mv /tmp/kminion /usr/local/bin/
+  when: not kminion_binary_available.stat.exists
+
+- name: Set ownership of the kminion binary
+  become: true
+  ansible.builtin.file:
+    path: /usr/local/bin/kminion
+    owner: kminion
+    group: kminion
+
+- name: Create 'kminion' directory
+  become: true
+  ansible.builtin.file:
+    path: /etc/kminion
+    state: directory
+    mode: '0755'
+
+- name: Check if kminion config is avaialble
+  stat:
+    path: /etc/kminion/kminion_config.yaml
+  register: kminion_config_available
+
+- name: Send kminion config file from Ansible host to target server
+  become: true
+  copy:
+    src: /home/ansible/ansible-member-1/roles/kminion_servers/files/kminion-config.yaml
+    dest: /etc/kminion/kminion_config.yaml
+  when: not kminion_config_available.stat.exists
+
+- name: Set ownership of /etc/kminion and its contents to user 'kminion' and group 'kminion'
+  become: true
+  ansible.builtin.file:
+    recurse: yes
+    path: /etc/kminion
+    owner: kminion
+    group: kminion
+
+- name: Check if the systemd unit file exists
+  become: true
+  ansible.builtin.stat:
+    path: /etc/systemd/system/kminion.service
+  register: systemd_unit_file_stat
+
+- name: Configure systemd unit file for Kminion
+  become: true
+  ansible.builtin.template:
+    src: kminion.service.j2
+    dest: /etc/systemd/system/kminion.service
+  when: not systemd_unit_file_stat.stat.exists
+
+- name: Get the IP address of the Ubuntu machine
+  become: true
+  shell: "hostname -I | awk '{print $1}'"
+  register: ubuntu_ip
+
+- name: Replace '127.0.0.1' with the IP address in systemd unit file
+  become: true
+  ansible.builtin.lineinfile:
+    path: /etc/systemd/system/kminion.service
+    regexp: '^(Environment=KAFKA_BROKERS=).*'
+    line: 'Environment=KAFKA_BROKERS={{ ubuntu_ip.stdout }}:9092'
+
+- name: Reload systemd configuration and start Kminion service
+  become: true
+  ansible.builtin.systemd:
+    daemon_reload: true
+    name:   kminion
+    enabled: yes
+    state: started
